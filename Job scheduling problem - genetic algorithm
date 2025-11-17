@@ -1,0 +1,84 @@
+import random
+import numpy as np
+jobs = [
+    [(0, 3), (1, 2), (2, 2)],  
+    [(0, 2), (2, 1), (1, 4)],  
+    [(1, 4), (2, 3), (0, 1)]   
+]
+num_jobs = len(jobs)
+num_machines = 3
+operations = sum(len(j) for j in jobs)
+POP_SIZE = 20
+GENERATIONS = 5
+MUTATION_RATE = 0.2
+def create_chromosome():
+    chrom = []
+    for j in range(num_jobs):
+        chrom += [j] * len(jobs[j])
+    random.shuffle(chrom)
+    return chrom
+def decode_and_evaluate(chromosome):
+    machine_time = [0] * num_machines
+    job_time = [0] * num_jobs
+    job_step = [0] * num_jobs
+    for job in chromosome:
+        op_id = job_step[job]
+        machine, duration = jobs[job][op_id]
+        start_time = max(machine_time[machine], job_time[job])
+        finish_time = start_time + duration
+        machine_time[machine] = finish_time
+        job_time[job] = finish_time
+        job_step[job] += 1
+
+    return max(job_time)  
+def fitness(chromosome):
+    return 1 / (1 + decode_and_evaluate(chromosome))
+def selection(population):
+    return max(random.sample(population, 2), key=lambda x: fitness(x))
+    
+def crossover(parent1, parent2):
+    size = len(parent1)
+    start, end = sorted(random.sample(range(size), 2))
+    child = [None] * size
+    child[start:end] = parent1[start:end]
+
+    ptr = end
+    for gene in parent2[end:] + parent2[:end]:
+        if gene not in child[start:end] or child.count(gene) < parent1.count(gene):
+            if ptr >= size: ptr = 0
+            child[ptr] = gene
+            ptr += 1
+    return child
+
+def mutate(chromosome):
+    if random.random() < MUTATION_RATE:
+        a, b = random.sample(range(len(chromosome)), 2)
+        chromosome[a], chromosome[b] = chromosome[b], chromosome[a]
+    return chromosome
+def genetic_algorithm():
+    population = [create_chromosome() for _ in range(POP_SIZE)]
+    best_solution = None
+    best_makespan = float('inf')
+
+    for gen in range(GENERATIONS):
+        new_population = []
+        for _ in range(POP_SIZE):
+            parent1 = selection(population)
+            parent2 = selection(population)
+            child = crossover(parent1, parent2)
+            child = mutate(child)
+            new_population.append(child)
+
+        population = new_population
+        for chrom in population:
+            makespan = decode_and_evaluate(chrom)
+            if makespan < best_makespan:
+                best_solution = chrom
+                best_makespan = makespan
+
+        print(f"Gen {gen}: Best Makespan = {best_makespan}")
+
+    return best_solution, best_makespan
+best_schedule, best_time = genetic_algorithm()
+print("\nBest Schedule:", best_schedule)
+print("Best Makespan:", best_time)
