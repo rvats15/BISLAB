@@ -1,0 +1,64 @@
+import random
+import math
+cities = [
+    (0, 0), (1, 5), (5, 2), (6, 6), (8, 3),
+    (2, 1), (7, 7), (3, 3), (4, 4), (9, 0)
+]
+def distance(a, b):
+    return math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2)
+def total_distance(tour):
+    dist = 0
+    for i in range(len(tour)):
+        city_a = cities[tour[i]]
+        city_b = cities[tour[(i+1) % len(tour)]]
+        dist += distance(city_a, city_b)
+    return dist
+def create_individual(n):
+    gene = list(range(n))
+    random.shuffle(gene)
+    return gene
+def mutate(individual, rate=0.1):
+    ind = individual[:]
+    for i in range(len(ind)):
+        if random.random() < rate:
+            j = random.randint(0, len(ind)-1)
+            ind[i], ind[j] = ind[j], ind[i]
+    return ind
+def crossover(parent1, parent2):
+    size = len(parent1)
+    a, b = sorted([random.randint(0, size-1) for _ in range(2)])
+    child = [None]*size
+    child[a:b+1] = parent1[a:b+1]
+    p2_index = 0
+    for i in range(size):
+        if child[i] is None:
+            while parent2[p2_index] in child:
+                p2_index += 1
+            child[i] = parent2[p2_index]
+    return child
+def genetic_algorithm(generations=100, pop_size=100, mutation_rate=0.1):
+    num_cities = len(cities)
+    population = [create_individual(num_cities) for _ in range(pop_size)]
+    best = None
+    best_dist = float('inf')
+    for gen in range(generations):
+        scored = [(ind, total_distance(ind)) for ind in population]
+        scored.sort(key=lambda x: x[1])
+        if scored[0][1] < best_dist:
+            best = scored[0][0]
+            best_dist = scored[0][1]
+        new_pop = [best]  
+        while len(new_pop) < pop_size:
+            p1 = random.choice(scored[:50])[0]
+            p2 = random.choice(scored[:50])[0]
+            child = crossover(p1, p2)
+            child = mutate(child, mutation_rate)
+            new_pop.append(child)
+        population = new_pop
+        if gen % 20 == 0:
+            print(f"Gen {gen}: Best distance = {best_dist:.2f}")
+    return best, best_dist
+best_tour, best_dist = genetic_algorithm()
+print("\nBest tour found:")
+print(best_tour)
+print(f"Total distance: {best_dist:.2f}")
