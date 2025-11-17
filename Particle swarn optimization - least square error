@@ -1,0 +1,72 @@
+import numpy as np
+
+# Sample data points (x_i, y_i)
+x_data = np.array([1, 2, 3, 4, 5])
+y_data = np.array([3, 5, 7, 9, 11])  # Ideally y = 2*x + 1
+
+# Objective Function: sum of squared errors for parameters theta = [theta_0, theta_1]
+def objective_function(theta):
+    theta_0, theta_1 = theta
+    predictions = theta_0 + theta_1 * x_data
+    errors = y_data - predictions
+    return np.sum(errors**2)
+
+# PSO Parameters
+num_particles = 30
+num_iterations = 10
+w = 0.7              # Inertia weight
+c1 = 1.5             # Cognitive coefficient
+c2 = 2.1             # Social coefficient
+bounds = [(-10, 10), (-10, 10)]   # Bounds for theta_0 and theta_1
+
+# Initialize particles (positions and velocities) within bounds for each parameter
+positions = np.array([np.random.uniform(low, high, num_particles) for low, high in bounds]).T
+velocities = np.random.uniform(-1, 1, (num_particles, 2))
+
+# Initialize personal bests
+personal_best_positions = np.copy(positions)
+personal_best_values = np.array([objective_function(p) for p in personal_best_positions])
+
+# Initialize global best
+best_particle_index = np.argmin(personal_best_values)
+global_best_position = personal_best_positions[best_particle_index]
+global_best_value = personal_best_values[best_particle_index]
+
+# PSO Main Loop
+for iteration in range(num_iterations):
+    for i in range(num_particles):
+        fitness = objective_function(positions[i])
+
+        # Update personal best
+        if fitness < personal_best_values[i]:
+            personal_best_values[i] = fitness
+            personal_best_positions[i] = positions[i]
+
+        # Update global best
+        if fitness < global_best_value:
+            global_best_value = fitness
+            global_best_position = positions[i]
+
+    # Update velocities and positions
+    for i in range(num_particles):
+        r1 = np.random.rand(2)
+        r2 = np.random.rand(2)
+
+        cognitive = c1 * r1 * (personal_best_positions[i] - positions[i])
+        social = c2 * r2 * (global_best_position - positions[i])
+        velocities[i] = w * velocities[i] + cognitive + social
+
+        positions[i] += velocities[i]
+
+        # Clip positions to bounds
+        for dim in range(2):
+            positions[i, dim] = np.clip(positions[i, dim], bounds[dim][0], bounds[dim][1])
+
+    # Optional: print progress
+    print(f"Iteration {iteration+1}/{num_iterations}, Best SSE: {global_best_value:.5f}")
+
+# Final result
+print("\nBest parameters found:")
+print("theta_0 =", global_best_position[0])
+print("theta_1 =", global_best_position[1])
+print("Minimum sum of squared errors:", global_best_value)
