@@ -1,0 +1,106 @@
+import numpy as np
+import random
+from itertools import permutations
+
+# Distance matrix (symmetric) between nodes (including depot 0)
+distance_matrix = np.array([
+    [0, 2, 9, 10],
+    [2, 0, 6, 4],
+    [9, 6, 0, 8],
+    [10, 4, 8, 0]
+])
+
+num_customers = distance_matrix.shape[0] - 1
+population_size = 9  # 3x3 grid
+grid_dim = (3, 3)
+
+# Number of vehicles (for splitting routes)
+num_vehicles = 2
+
+# Generate initial population: each individual is a permutation of customers [1..num_customers]
+def generate_individual():
+    perm = list(range(1, num_customers + 1))
+    random.shuffle(perm)
+    return perm
+
+population = [generate_individual() for _ in range(population_size)]
+
+# Fitness function: total route distance (split customers evenly for routes)
+def fitness(individual):
+    split_points = np.linspace(0, num_customers, num_vehicles + 1, dtype=int)
+    total_distance = 0
+    for i in range(num_vehicles):
+        route = [0] + individual[split_points[i]:split_points[i+1]] + [0]  # depot at start and end
+        for j in range(len(route) - 1):
+            total_distance += distance_matrix[route[j], route[j+1]]
+    return total_distance
+
+# Get neighbors indices in 3x3 grid
+def get_neighbors(idx):
+    r, c = divmod(idx, grid_dim[1])
+    neighbors = []
+    for dr in [-1, 0, 1]:
+        for dc in [-1, 0, 1]:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < grid_dim[0] and 0 <= nc < grid_dim[1]:
+                n_idx = nr * grid_dim[1] + nc
+                if n_idx != idx:
+                    neighbors.append(n_idx)
+    return neighbors
+
+# Crossover operator: Order Crossover (OX)
+def crossover(parent1, parent2):
+    size = len(parent1)
+    a, b = sorted(random.sample(range(size), 2))
+    child = [None] * size
+    child[a:b] = parent1[a:b]
+    
+    pointer = b
+    for gene in parent2[b:] + parent2[:b]:
+        if gene not in child:
+            if pointer == size:
+                pointer = 0
+            child[pointer] = gene
+            pointer += 1
+    return child
+
+# Mutation operator: Swap mutation
+def mutate(individual):
+    a, b = random.sample(range(len(individual)), 2)
+    individual[a], individual[b] = individual[b], individual[a]
+    return individual
+
+# One iteration of PCA update
+def pca_iteration(pop):
+    new_pop = pop.copy()
+    for idx in range(len(pop)):
+        neighbors = get_neighbors(idx)
+        # Select a random neighbor to mate with
+        partner_idx = random.choice(neighbors)
+        parent1 = pop[idx]
+        parent2 = pop[partner_idx]
+        
+        child = crossover(parent1, parent2)
+        if random.random() < 0.2:
+            child = mutate(child)
+        
+        # Replace if child better
+        if fitness(child) < fitness(pop[idx]):
+            new_pop[idx] = child
+    return new_pop
+
+# Main loop
+num_generations = 25
+for gen in range(num_generations):
+    population = pca_iteration(population)
+    best_fitness = min(fitness(ind) for ind in population)
+    print(f"Generation {gen+1}: Best total distance = {best_fitness}")
+
+# Print best solution
+best_individual = min(population, key=fitness)
+print("\nBest route assignment (split evenly):")
+split_points = np.linspace(0, num_customers, num_vehicles + 1, dtype=int)
+for i in range(num_vehicles):
+    route = [0] + best_individual[split_points[i]:split_points[i+1]] + [0]
+    print(f"Vehicle {i+1} route: {route}")
+print(f"Total distance: {fitness(best_individual)}")
